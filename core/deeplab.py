@@ -8,6 +8,21 @@ def xception(inputs,
         with slim.arg_scope([slim.separable_conv2d,
                              slim.conv2d],
                             normalizer_fn=slim.batch_norm):
+
+            inputs = slim.conv2d(inputs,
+                                 num_outputs=32,
+                                 kernel_size=3,
+                                 stride=2,
+                                 padding='SAME',
+                                 scope='entry_flow/conv1_1')
+
+            inputs = slim.conv2d(inputs,
+                                 num_outputs=64,
+                                 kernel_size=3,
+                                 stride=1,
+                                 padding='SAME',
+                                 scope='entry_flow/conv1_2')
+
             inputs = xception_block(inputs,
                                     depth_list=[128, 128, 128],
                                     skip_connetcion_type='conv',
