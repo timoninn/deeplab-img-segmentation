@@ -13,7 +13,7 @@ def xception(inputs,
                                  num_outputs=32,
                                  kernel_size=3,
                                  stride=2,
-                                 padding='SAME',
+                                 padding='VALID',
                                  scope='entry_flow/conv1_1')
 
             inputs = slim.conv2d(inputs,
@@ -160,8 +160,20 @@ def separable_convolution(inputs,
                           depth_multiplier,
                           stride,
                           rate,
+                          use_explict_padding=True,
                           activation_fn=None,
                           scope=None):
+
+    def _separable_conv2d(padding):
+        return slim.separable_conv2d(inputs,
+                                      num_outputs,
+                                      kernel_size,
+                                      depth_multiplier=depth_multiplier,
+                                      stride=stride,
+                                      rate=rate,
+                                      activation_fn=activation_fn,
+                                      scope=scope)
+
     def _split_separable_conv2d(padding):
         """Split separable conv2d into deptwise and pointwise"""
         outputs = slim.separable_conv2d(inputs,
@@ -180,5 +192,30 @@ def separable_convolution(inputs,
                            activation_fn=activation_fn,
                            scope=scope + '_pointwise')
 
-    return _split_separable_conv2d(padding='SAME')
+    if stride == 1 or not use_explict_padding:
+        return _split_separable_conv2d(padding='SAME')
+    else:
+        inputs = fixed_padding(inputs, kernel_size, rate)
+        return _split_separable_conv2d(padding='VALID')
 
+
+def fixed_padding(inputs, kernel_size, rate=1):
+  """Pads the input along the spatial dimensions independently of input size.
+
+  Args:
+    inputs: A tensor of size [batch, height_in, width_in, channels].
+    kernel_size: The kernel to be used in the conv2d or max_pool2d operation.
+                 Should be a positive integer.
+    rate: An integer, rate for atrous convolution.
+
+  Returns:
+    output: A tensor of size [batch, height_out, width_out, channels] with the
+      input, either intact (if kernel_size == 1) or padded (if kernel_size > 1).
+  """
+  kernel_size_effective = kernel_size + (kernel_size - 1) * (rate - 1)
+  pad_total = kernel_size_effective - 1
+  pad_beg = pad_total // 2
+  pad_end = pad_total - pad_beg
+  padded_inputs = tf.pad(inputs, [[0, 0], [pad_beg, pad_end],
+                                  [pad_beg, pad_end], [0, 0]])
+  return padded_inputs
