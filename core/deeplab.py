@@ -7,7 +7,7 @@ def xception(inputs,
     with tf.variable_scope(scope, 'xception', [inputs]):
         with slim.arg_scope([slim.separable_conv2d,
                              slim.conv2d],
-                            biases_initializer=None):
+                            normalizer_fn=slim.batch_norm):
             inputs = xception_block(inputs,
                                     depth_list=[128, 128, 128],
                                     skip_connetcion_type='conv',
