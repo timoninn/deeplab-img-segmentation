@@ -11,3 +11,5 @@ __pycache__/
 # Resouces
 model_graph/
 images/
+data/
+tmp/
