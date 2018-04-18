@@ -5,6 +5,15 @@ import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
 
+import core.preprocess_utills as preprocess
+
+
+def _bytes_feature(value):
+    return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
+
+
+deeplab = preprocess.DeepLab()
+
 with tf.Session() as sess:
     feature = {'train/label': tf.FixedLenFeature([], tf.string),
                'train/color': tf.FixedLenFeature([], tf.string)}
@@ -20,12 +29,12 @@ with tf.Session() as sess:
     color = tf.decode_raw(features['train/color'], tf.uint8)
 
     label = tf.reshape(label, shape=[129, 129])
-    color = tf.reshape(color, shape=[129, 129, 3])
+    color = tf.reshape(color, shape=[513, 513, 3])
 
     label, color = tf.train.shuffle_batch([label, color],
                                           batch_size=1,
                                           capacity=9,
-                                          min_after_dequeue=1)
+                                          min_after_dequeue=5)
 
     init_op = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
     sess.run(init_op)
@@ -33,18 +42,27 @@ with tf.Session() as sess:
     coord = tf.train.Coordinator()
     threads = tf.train.start_queue_runners(coord=coord)
 
-    a, b = sess.run([label, color])
+    writer = tf.python_io.TFRecordWriter('prelogits.tfrecords')
 
-    print(np.unique(a[0]))
+    while True:
+        try:
+            label_image, color_image = sess.run([label, color])
+            prelogits = deeplab.run_decoder(color_image[0])
 
-    plt.imshow(a[0])
-    plt.show()
+            print(prelogits.shape)
 
-    plt.imshow(b[0])
-    plt.show()
+            feature = {'train/labels': _bytes_feature(tf.compat.as_bytes(label_image.tostring())),
+                       'train/prelogits': _bytes_feature(tf.compat.as_bytes(prelogits.tostring()))}
+
+            example = tf.train.Example(features=tf.train.Features(feature=feature))
+            writer.write(example.SerializeToString())
+
+        except tf.errors.OutOfRangeError:
+            print('Finish')
+            break
+
+    writer.close()
 
     coord.request_stop()
-
-    # Wait for threads to stop
     coord.join(threads)
     sess.close()

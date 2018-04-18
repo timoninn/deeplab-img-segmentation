@@ -4,40 +4,44 @@ import numpy as np
 from tensorflow.contrib import slim
 from core import deeplab
 
-ckpt_dir = '/Users/nikki/Desktop/models/research/deeplab/graph/1/'
-model_dir_path = '/Users/nikki/Development/deeplab-img-segmentation/model_graph/deeplabv3_pascal_train_aug/'
+from PIL import Image
+import matplotlib.pyplot as plt
 
-INPUT_TENSOR_NAME = 'xception_65/Pad:0'
-OUTPUT_TENSOR_NAME = 'xception_65/entry_flow/block3/unit_1/xception_module/add' + ':0'
+model_dir_path = '../frozen_inference_graph/deeplabv3_pascal_train_aug/'
 
+def resize_img(image):
+    INPUT_SIZE = 513
 
-zeros = np.zeros(shape=(1, 515, 515, 3), dtype=np.float32)
-ones = np.ones(shape=(1, 515, 515, 3), dtype=np.float32)
+    width, height = image.size
+    resize_ratio = 1.0 * INPUT_SIZE / max(width, height)
+    target_size = (int(resize_ratio * width), int(resize_ratio * height))
+    resized_image = image.convert('RGB').resize(target_size, Image.ANTIALIAS)
 
-with tf.Graph().as_default() as graph:
-    with slim.arg_scope([slim.batch_norm],
-                        is_training=False,
-                        scale=True):
-
-        inputs = tf.placeholder(tf.float32, shape=(1, 515, 515, 3))
-        model = deeplab.xception(inputs,
-                                   scope='xception_65')
-
-        with tf.Session() as sess:
-            variables_to_restore = slim.get_variables_to_restore()
-            restorer = tf.train.Saver(variables_to_restore)
-            restorer.restore(sess,
-                             save_path=model_dir_path + 'model.ckpt')
-
-            outputs = sess.run(OUTPUT_TENSOR_NAME,
-                               feed_dict={inputs: ones})
-
-    writer = tf.summary.FileWriter(logdir=ckpt_dir+'3', graph=graph)
+    return resized_image
 
 
+def pad_to_bounding_box(image):
+    img_placeholder = tf.placeholder(shape=(None, None, 3), dtype=tf.float32)
+
+    rrr = tf.constant(shape=[1], dtype=tf.float32, value=127.5)
+    qq = img_placeholder - rrr
+
+    resized_img = tf.image.pad_to_bounding_box(image=qq,
+                                               offset_height=0,
+                                               offset_width=0,
+                                               target_height=513,
+                                               target_width=513)
+
+    rezzz = resized_img + rrr
+    with tf.Session() as sess:
+        return sess.run(rezzz, feed_dict={img_placeholder: image})
 
 
 class DeepLab(object):
+    INPUT_TENSOR_NAME = 'add_2:0'
+    SEMATIC_PREDICITON_TENSOR_NAME = 'logits/semantic/BiasAdd:0'
+    DECODER_OUTPUT_TENSOR_NAME = 'decoder/decoder_conv1_pointwise/Relu:0'
+
     def __init__(self):
         self.graph = tf.Graph()
 
@@ -53,19 +57,28 @@ class DeepLab(object):
 
         self.sess = tf.Session(graph=self.graph)
 
+    def run_decoder(self, inputs):
+        return self.sess.run(self.DECODER_OUTPUT_TENSOR_NAME,
+                             feed_dict={self.INPUT_TENSOR_NAME: inputs})
 
-    def run(self, inputs):
-        return self.sess.run(OUTPUT_TENSOR_NAME,
-                             feed_dict={INPUT_TENSOR_NAME: inputs})
-
-
-
-deeplab = DeepLab()
-groundthruth_outputs = deeplab.run(ones)
+    def run_semantic(self, inputs):
+        return self.sess.run(self.SEMATIC_PREDICITON_TENSOR_NAME,
+                             feed_dict={self.INPUT_TENSOR_NAME: inputs})
 
 
-with tf.Session() as sess:
-    if sess.run(tf.reduce_all(tf.equal(groundthruth_outputs, outputs))):
-        print('Equal')
-    else:
-        print('Not equal')
+# image = Image.open('../data/train/color/171206_034456206_Camera_6.jpg')
+# image = Image.open('../data/train/0.jpg')
+# image = resize_img(image)
+# image = pad_to_bounding_box(image)
+#
+# deeplab = DeepLab()
+# result = deeplab.run_semantic(image)
+# with tf.Session() as sess:
+#     upsampled_logits = tf.image.resize_bilinear(images=result, size=(513, 513), align_corners=True)
+#     prediction = tf.argmax(upsampled_logits, axis=3)
+#
+#     result = sess.run(prediction)
+#
+# plt.imshow(np.squeeze(result))
+# plt.show()
+# print(result.shape)

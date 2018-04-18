@@ -65,9 +65,11 @@ def map_to_classes(image):
     return result
 
 
-def resize_image(image):
+def resize_image(image,
+                 target_height,
+                 target_width):
     with tf.Session() as sess:
-        resize_image = tf.image.resize_images(image, size=[129, 129], method=1)
+        resize_image = tf.image.resize_images(image, size=[target_height, target_width], method=1)
         resize_image = tf.cast(resize_image, dtype=tf.uint8)
         resized_image = sess.run(resize_image)
 
@@ -82,9 +84,13 @@ for i in range(len(train_labels)):
 
     label_image = map_to_classes(label_image)
     label_image = np.expand_dims(label_image, axis=2)
-    label_image = resize_image(label_image)
+    label_image = resize_image(label_image,
+                               target_height=129,
+                               target_width=129)
 
-    color_image = resize_image(color_image)
+    color_image = resize_image(color_image,
+                               target_height=513,
+                               target_width=513)
 
     feature = {'train/label': _bytes_feature(tf.compat.as_bytes(label_image.tostring())),
                'train/color': _bytes_feature(tf.compat.as_bytes(color_image.tostring()))}
