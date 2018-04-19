@@ -41,47 +41,25 @@ with tf.Session() as sess:
     coord = tf.train.Coordinator()
     threads = tf.train.start_queue_runners(coord=coord)
 
-    # label = tf.one_hot(label, depth=8, axis=-1)
-    # logit = model(prelogit)
-    #
-    # tf.logging.set_verbosity(tf.logging.INFO)
-    #
-    # label = tf.reshape(label, shape=(-1, 8))
-    # logit = tf.reshape(logit, shape=(-1, 8))
-    #
-    # loss = tf.losses.softmax_cross_entropy(label, logits=logit)
-    # optimizer = tf.train.AdamOptimizer(learning_rate=0.01)
-    # total_loss = slim.losses.get_total_loss()
-    # train_op = slim.learning.create_train_op(total_loss=total_loss, optimizer=optimizer)
-    #
-    # final_loss = slim.learning.train(train_op,
-    #                                  logdir='tmp/model/',
-    #                                  number_of_steps=500,
-    #                                  save_summaries_secs=60,
-    #                                  log_every_n_steps=20)
+    label = tf.one_hot(label, depth=8, axis=-1)
+    logit = model(prelogit)
 
-    label_image, prelogit_ = sess.run([label, prelogit])
-    print(label_image.shape)
+    tf.logging.set_verbosity(tf.logging.INFO)
+
+    label = tf.reshape(label, shape=(-1, 8))
+    logit = tf.reshape(logit, shape=(-1, 8))
+
+    loss = tf.losses.softmax_cross_entropy(label, logits=logit)
+    optimizer = tf.train.AdamOptimizer(learning_rate=0.01)
+    total_loss = slim.losses.get_total_loss()
+    train_op = slim.learning.create_train_op(total_loss=total_loss, optimizer=optimizer)
+
+    final_loss = slim.learning.train(train_op,
+                                     logdir='tmp/model/',
+                                     number_of_steps=350,
+                                     save_summaries_secs=60,
+                                     log_every_n_steps=20)
 
     coord.request_stop()
     coord.join(threads)
     sess.close()
-
-plt.imshow(label_image[0])
-plt.show()
-
-with tf.Graph().as_default():
-    predictions = model(inputs=prelogit_)
-    prediction = tf.argmax(predictions, axis=3)
-
-    model_path = tf.train.latest_checkpoint('tmp/model/')
-    init_fn = slim.assign_from_checkpoint_fn(model_path,
-                                             slim.get_model_variables(),
-                                             ignore_missing_vars=True)
-
-    with tf.Session() as sess:
-        init_fn(sess)
-        result = sess.run(prediction)
-
-    plt.imshow(result[0])
-    plt.show()
