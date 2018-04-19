@@ -9,10 +9,7 @@ from tensorflow.contrib import slim
 
 
 def model(inputs):
-    # 1x129x129x8
-    logits = slim.conv2d(inputs, num_outputs=8, kernel_size=1, activation_fn=None)
-
-    return logits
+    return slim.conv2d(inputs, num_outputs=8, kernel_size=1, activation_fn=None)
 
 
 with tf.Session() as sess:
@@ -63,16 +60,6 @@ with tf.Session() as sess:
     #                                  save_summaries_secs=60,
     #                                  log_every_n_steps=20)
 
-    # while True:
-    #     try:
-    #         label_image, prelogit_ = sess.run([label, prelogit])
-    #
-    #         print(label_image.shape)
-    #
-    #     except tf.errors.OutOfRangeError:
-    #         print('Finish')
-    #         break
-
     label_image, prelogit_ = sess.run([label, prelogit])
     print(label_image.shape)
 
@@ -85,12 +72,12 @@ plt.show()
 
 with tf.Graph().as_default():
     predictions = model(inputs=prelogit_)
+    prediction = tf.argmax(predictions, axis=3)
 
-    init_fn = slim.assign_from_checkpoint_fn('tmp/model/model.ckpt',
+    model_path = tf.train.latest_checkpoint('tmp/model/')
+    init_fn = slim.assign_from_checkpoint_fn(model_path,
                                              slim.get_model_variables(),
                                              ignore_missing_vars=True)
-
-    prediction = tf.argmax(predictions, axis=3)
 
     with tf.Session() as sess:
         init_fn(sess)
