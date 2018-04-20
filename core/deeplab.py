@@ -8,7 +8,6 @@ def xception(inputs,
         with slim.arg_scope([slim.separable_conv2d,
                              slim.conv2d],
                             normalizer_fn=slim.batch_norm):
-
             inputs = slim.conv2d(inputs,
                                  num_outputs=32,
                                  kernel_size=3,
@@ -74,7 +73,6 @@ def xception(inputs,
     return inputs
 
 
-
 def xception_block(inputs,
                    depth_list,
                    skip_connetcion_type,
@@ -85,12 +83,13 @@ def xception_block(inputs,
     with tf.variable_scope(scope, 'block', [inputs]):
         for i in range(num_units):
             inputs = xception_module(inputs,
-                                      depth_list,
-                                      skip_connetcion_type,
-                                      stride=stride,
-                                      separable_conv_activation_fn=separable_conv_activation_fn,
-                                      scope='unit_'+str(i+1) + '/xception_module')
+                                     depth_list,
+                                     skip_connetcion_type,
+                                     stride=stride,
+                                     separable_conv_activation_fn=separable_conv_activation_fn,
+                                     scope='unit_' + str(i + 1) + '/xception_module')
     return inputs
+
 
 def xception_module(inputs,
                     depth_list,
@@ -133,15 +132,15 @@ def xception_module(inputs,
                                          depth_multiplier=1,
                                          stride=stride if i == 2 else 1,
                                          rate=rate,
-                                         scope='separable_conv' + str(i+1))
+                                         scope='separable_conv' + str(i + 1))
 
         if skip_connection_type == 'conv':
             inputs = slim.conv2d(inputs,
-                                num_outputs=depth_list[-1],
-                                kernel_size=[1, 1],
-                                stride=stride,
-                                activation_fn=None,
-                                scope='shortcut')
+                                 num_outputs=depth_list[-1],
+                                 kernel_size=[1, 1],
+                                 stride=stride,
+                                 activation_fn=None,
+                                 scope='shortcut')
             return residual + inputs
         elif skip_connection_type == 'add':
             return residual + inputs
@@ -149,9 +148,6 @@ def xception_module(inputs,
             return residual
         else:
             raise ValueError('Unsupported skip connection type.')
-
-
-
 
 
 def separable_convolution(inputs,
@@ -163,16 +159,15 @@ def separable_convolution(inputs,
                           use_explict_padding=True,
                           activation_fn=None,
                           scope=None):
-
     def _separable_conv2d(padding):
         return slim.separable_conv2d(inputs,
-                                      num_outputs,
-                                      kernel_size,
-                                      depth_multiplier=depth_multiplier,
-                                      stride=stride,
-                                      rate=rate,
-                                      activation_fn=activation_fn,
-                                      scope=scope)
+                                     num_outputs,
+                                     kernel_size,
+                                     depth_multiplier=depth_multiplier,
+                                     stride=stride,
+                                     rate=rate,
+                                     activation_fn=activation_fn,
+                                     scope=scope)
 
     def _split_separable_conv2d(padding):
         """Split separable conv2d into deptwise and pointwise"""
@@ -200,22 +195,22 @@ def separable_convolution(inputs,
 
 
 def fixed_padding(inputs, kernel_size, rate=1):
-  """Pads the input along the spatial dimensions independently of input size.
+    """Pads the input along the spatial dimensions independently of input size.
 
-  Args:
-    inputs: A tensor of size [batch, height_in, width_in, channels].
-    kernel_size: The kernel to be used in the conv2d or max_pool2d operation.
-                 Should be a positive integer.
-    rate: An integer, rate for atrous convolution.
+    Args:
+      inputs: A tensor of size [batch, height_in, width_in, channels].
+      kernel_size: The kernel to be used in the conv2d or max_pool2d operation.
+                   Should be a positive integer.
+      rate: An integer, rate for atrous convolution.
 
-  Returns:
-    output: A tensor of size [batch, height_out, width_out, channels] with the
-      input, either intact (if kernel_size == 1) or padded (if kernel_size > 1).
-  """
-  kernel_size_effective = kernel_size + (kernel_size - 1) * (rate - 1)
-  pad_total = kernel_size_effective - 1
-  pad_beg = pad_total // 2
-  pad_end = pad_total - pad_beg
-  padded_inputs = tf.pad(inputs, [[0, 0], [pad_beg, pad_end],
-                                  [pad_beg, pad_end], [0, 0]])
-  return padded_inputs
+    Returns:
+      output: A tensor of size [batch, height_out, width_out, channels] with the
+        input, either intact (if kernel_size == 1) or padded (if kernel_size > 1).
+    """
+    kernel_size_effective = kernel_size + (kernel_size - 1) * (rate - 1)
+    pad_total = kernel_size_effective - 1
+    pad_beg = pad_total // 2
+    pad_end = pad_total - pad_beg
+    padded_inputs = tf.pad(inputs, [[0, 0], [pad_beg, pad_end],
+                                    [pad_beg, pad_end], [0, 0]])
+    return padded_inputs

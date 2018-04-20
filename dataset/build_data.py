@@ -1,8 +1,66 @@
-import glob
-import cv2
-from PIL import Image
-import tensorflow as tf
 import numpy as np
+import tensorflow as tf
+
+from PIL import Image
+
+import glob
+import dataset.preprocess_dataset as preprocess
+
+
+def _load_image(path, type):
+    """
+    Load image at path.
+
+    :param path: Path to image.
+    :param type: Either 'JPG' or 'PNG'
+    :return: ndarrray of shape [1, height, width, num_channels].
+    """
+    image = Image.open(path)
+    image = np.expand_dims(image, axis=0)
+
+    if type == 'JPG':
+        return image
+    elif type == 'PNG':
+        return np.expand_dims(image, axis=3)
+    else:
+        raise ValueError('Unsupported image type')
+
+
+def _int64_feature(value):
+    return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
+
+
+def _bytes_feature(value):
+    return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
+
+
+def main(origin_paths, segmentation_paths, filepath):
+    writer = tf.python_io.TFRecordWriter(filepath)
+
+    with tf.Session() as sess:
+        for i in range(len(origin_paths)):
+            segm_image = _load_image(segmentation_paths[i], type='PNG')
+            origin_image = _load_image(origin_paths[i], type='JPG')
+
+            segm_image = preprocess.map_to_classes(segm_image)
+
+            origin_image_patches = preprocess.extract_patches(origin_image)
+            segm_image_patches = preprocess.extract_patches(segm_image)
+
+            origin_image_patches, segm_image_patches = sess.run([origin_image_patches, segm_image_patches])
+
+            for j in range(9):
+                preprocess.visualize_segmentation(origin_image_patches[j], segm_image_patches[j])
+                # feature = {
+                #     'image/origin/encoded': _bytes_feature(tf.compat.as_bytes(origin_image_patches[j].tostring())),
+                #     'image/segmentation/encoded': _bytes_feature(tf.compat.as_bytes(segm_image_patches[j].tostring()))
+                # }
+                #
+                # example = tf.train.Example(features=tf.train.Features(feature=feature))
+                #
+                # writer.write(example.SerializeToString())
+    writer.close()
+
 
 label_path = '../data/train_label_batch/*.png'
 color_path = '../data/train_color_batch/*.jpg'
@@ -27,76 +85,4 @@ val_colors = colors[int(0.6 * num_examples):int(0.8 * num_examples)]
 test_labels = labels[int(0.8 * num_examples):]
 test_colors = colors[int(0.8 * num_examples):]
 
-
-def load_image(path):
-    image = Image.open(path)
-    return np.array(image)
-
-
-def _int64_feature(value):
-    return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
-
-
-def _bytes_feature(value):
-    return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
-
-
-def map_to_classes(image):
-    """
-    car, 33
-    motorbicycle, 34
-    bicycle, 35
-    person, 36
-    truck, 38
-    bus, 39
-    tricycle, 40
-    """
-    image = image // 1000
-
-    result = np.zeros(shape=image.shape, dtype=np.uint8)
-    result[image == 33] = 1
-    result[image == 34] = 2
-    result[image == 35] = 3
-    result[image == 36] = 4
-    result[image == 38] = 5
-    result[image == 39] = 6
-    result[image == 40] = 7
-
-    return result
-
-
-def resize_image(image,
-                 target_height,
-                 target_width):
-    with tf.Session() as sess:
-        resize_image = tf.image.resize_images(image, size=[target_height, target_width], method=1)
-        resize_image = tf.cast(resize_image, dtype=tf.uint8)
-        resized_image = sess.run(resize_image)
-
-        return resized_image
-
-
-writer = tf.python_io.TFRecordWriter('train.tfrecords')
-
-for i in range(len(train_labels)):
-    label_image = load_image(train_labels[i])
-    color_image = load_image(train_colors[i])
-
-    label_image = map_to_classes(label_image)
-    label_image = np.expand_dims(label_image, axis=2)
-    label_image = resize_image(label_image,
-                               target_height=129,
-                               target_width=129)
-
-    color_image = resize_image(color_image,
-                               target_height=513,
-                               target_width=513)
-
-    feature = {'train/label': _bytes_feature(tf.compat.as_bytes(label_image.tostring())),
-               'train/color': _bytes_feature(tf.compat.as_bytes(color_image.tostring()))}
-
-    example = tf.train.Example(features=tf.train.Features(feature=feature))
-
-    writer.write(example.SerializeToString())
-
-writer.close()
+main(train_colors, train_labels, '../tmp/train.tfrecord')

@@ -13,6 +13,9 @@ def _crop(image,
           offset_width,
           target_height=513,
           target_width=513):
+    """
+    Deprecated. Will be remove on release.
+    """
     return tf.image.crop_to_bounding_box(image,
                                          offset_height,
                                          offset_width,
@@ -23,6 +26,9 @@ def _crop(image,
 def _smart_crop(color_image,
                 label_image,
                 num_crops=1):
+    """
+    Deprecated. Will be remove on release.
+    """
     image_size = tf.shape(label_image)
 
     image_height = image_size[0]
@@ -51,10 +57,10 @@ def _smart_crop(color_image,
 
 def extract_patches(image):
     """
-    Extract nine patches from image. Patched don't overlap.
+    Extract 9 patches from image. Patched don't overlap. Patch shape [1, 904, 1128, num_channels]
 
-    :param image: Tensor with shape [batch_size, 2710, 3384, num_channels].
-    :return:  Tensor with shape [9, 904, 1128, num_channels].
+    :param image: Tensor with shape [1, 2710, 3384, num_channels].
+    :return: Tensor with shape [9, 904, 1128, num_channels].
     """
     num_channels = tf.shape(image)[3]
     image = tf.extract_image_patches(image,
@@ -126,6 +132,7 @@ def visualize_segmentation(image, seg_map):
     plt.imshow(image)
     plt.axis('off')
 
+    seg_map = np.squeeze(seg_map)
     color_seg_map = _label2color(seg_map)
     plt.subplot(142)
     plt.imshow(color_seg_map)
@@ -145,30 +152,3 @@ def visualize_segmentation(image, seg_map):
     ax.yaxis.tick_right()
     plt.yticks(range(unique_labels.shape[0]), LABEL_NAMES[unique_labels])
     plt.show()
-
-
-label_image = Image.open('../data/train/label/171206_034513043_Camera_6_instanceIds.png')
-
-label_image = np.array(label_image)
-label_image = np.expand_dims(label_image, axis=2)
-label_image = map_to_classes(label_image)
-
-color_image = Image.open('../data/train/color/171206_034513043_Camera_6.jpg')
-
-# label_image = np.squeeze(label_image)
-# print(np.unique(label_image))
-# visualize_segmentation(color_image, label_image)
-
-
-with tf.Session() as sess:
-    color_image = np.expand_dims(color_image, axis=0)
-    label_image = np.expand_dims(label_image, axis=0)
-
-    color_image = extract_patches(color_image)
-    label_image = extract_patches(label_image)
-
-    color_image, label_image = sess.run([color_image, label_image])
-
-label_image = np.squeeze(label_image)
-
-visualize_segmentation(color_image[4], label_image[4])

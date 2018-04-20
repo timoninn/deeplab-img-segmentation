@@ -4,7 +4,7 @@ import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
 
-import core.preprocess_utills as preprocess
+import core.preprocess_utils as preprocess
 
 
 def _bytes_feature(value):
