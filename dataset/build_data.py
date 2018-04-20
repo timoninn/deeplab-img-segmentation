@@ -5,6 +5,7 @@ from PIL import Image
 
 import glob
 import dataset.preprocess_dataset as preprocess
+import dataset.utils as dutils
 
 
 def _load_image(path, type):
@@ -26,14 +27,6 @@ def _load_image(path, type):
         raise ValueError('Unsupported image type')
 
 
-def _int64_feature(value):
-    return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
-
-
-def _bytes_feature(value):
-    return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
-
-
 def main(origin_paths, segmentation_paths, filepath):
     writer = tf.python_io.TFRecordWriter(filepath)
 
@@ -50,15 +43,10 @@ def main(origin_paths, segmentation_paths, filepath):
             origin_image_patches, segm_image_patches = sess.run([origin_image_patches, segm_image_patches])
 
             for j in range(9):
-                preprocess.visualize_segmentation(origin_image_patches[j], segm_image_patches[j])
-                # feature = {
-                #     'image/origin/encoded': _bytes_feature(tf.compat.as_bytes(origin_image_patches[j].tostring())),
-                #     'image/segmentation/encoded': _bytes_feature(tf.compat.as_bytes(segm_image_patches[j].tostring()))
-                # }
-                #
-                # example = tf.train.Example(features=tf.train.Features(feature=feature))
-                #
-                # writer.write(example.SerializeToString())
+                # preprocess.visualize_segmentation(origin_image_patches[j], segm_image_patches[j])
+                example = dutils.image_seg_to_tfexample(origin_image_patches[j], segm_image_patches[j])
+                writer.write(example.SerializeToString())
+
     writer.close()
 
 

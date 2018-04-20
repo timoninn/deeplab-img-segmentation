@@ -3,8 +3,6 @@ import tensorflow as tf
 
 import matplotlib.pyplot as plt
 
-from PIL import Image
-
 LABEL_NAMES = np.array(['backgound', 'car', 'motorbicycle', 'bicycle', 'person', 'truck', 'bus', 'tricycle'])
 
 
