@@ -11,6 +11,5 @@ __pycache__/
 
 # Resouces
 frozen_inference_graph/
-images/
 data/
 tmp/
