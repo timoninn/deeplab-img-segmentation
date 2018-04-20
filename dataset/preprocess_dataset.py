@@ -1,22 +1,18 @@
+import numpy as np
 import tensorflow as tf
+
 import matplotlib.pyplot as plt
-import os
+
 from PIL import Image
 
-import numpy as np
-
-CROP_SIZE_HEIGHT = 513
-CROP_SIZE_WIDTH = 513
-
-color_image_filenames = tf.constant(['../data/train/color/170908_062104003_Camera_6.jpg'])
-label_image_filenames = tf.constant(['../data/train/label/170908_062104003_Camera_6_instanceIds.png'])
+LABEL_NAMES = np.array(['backgound', 'car', 'motorbicycle', 'bicycle', 'person', 'truck', 'bus', 'tricycle'])
 
 
-def crop(image,
-         offset_height,
-         offset_width,
-         target_height=CROP_SIZE_HEIGHT,
-         target_width=CROP_SIZE_WIDTH):
+def _crop(image,
+          offset_height,
+          offset_width,
+          target_height=513,
+          target_width=513):
     return tf.image.crop_to_bounding_box(image,
                                          offset_height,
                                          offset_width,
@@ -24,9 +20,9 @@ def crop(image,
                                          target_width=target_width)
 
 
-def smart_crop(color_image,
-               label_image,
-               num_crops=1):
+def _smart_crop(color_image,
+                label_image,
+                num_crops=1):
     image_size = tf.shape(label_image)
 
     image_height = image_size[0]
@@ -53,19 +49,25 @@ def smart_crop(color_image,
     return (color_image_cropped, label_image_cropped)
 
 
-def _parse_function(color_image_filename,
-                    label_image_filename):
-    color_image_string = tf.read_file(color_image_filename)
-    color_image_decoded = tf.image.decode_image(color_image_string)
+def extract_patches(image):
+    """
+    Extract nine patches from image. Patched don't overlap.
 
-    label_image_string = tf.read_file(label_image_filename)
-    label_image_decoded = tf.image.decode_image(label_image_string)
-
-    return smart_crop(color_image_decoded, label_image_decoded)
+    :param image: Tensor with shape [batch_size, 2710, 3384, num_channels].
+    :return:  Tensor with shape [9, 904, 1128, num_channels].
+    """
+    num_channels = tf.shape(image)[3]
+    image = tf.extract_image_patches(image,
+                                     ksizes=[1, 904, 1128, 1],
+                                     strides=[1, 904, 1128, 1],
+                                     rates=[1, 1, 1, 1],
+                                     padding='SAME')
+    return tf.reshape(image, shape=[9, 904, 1128, num_channels])
 
 
 def map_to_classes(image):
     """
+    Map original segmentation map to clasess:
     car, 33
     motorbicycle, 34
     bicycle, 35
@@ -73,68 +75,100 @@ def map_to_classes(image):
     truck, 38
     bus, 39
     tricycle, 40
+
+    :param image: Original segmentation map with shape [batch_size, height, width, 1] or [height, width, 1]
+    :return: Mapped segmentation map with same shape as input.
+    """
+    image = image // 1000
+    seg_map = np.zeros(shape=image.shape, dtype=np.uint8)
+    seg_map[image == 33] = 1
+    seg_map[image == 34] = 2
+    seg_map[image == 35] = 3
+    seg_map[image == 36] = 4
+    seg_map[image == 38] = 5
+    seg_map[image == 39] = 6
+    seg_map[image == 40] = 7
+
+    return seg_map
+
+
+def create_clolormap(num_classes):
+    """
+    Create colormap.
+
+    :param num_classes: Number of classes.
+    :return: np.array with shape [num_classes, 3].
+    """
+    colormap = np.zeros([num_classes, 3], dtype=np.uint8)
+
+    for i in range(num_classes):
+        for channel in range(3):
+            colormap[i, channel] = (i + channel) * 20
+
+    return colormap
+
+
+def visualize_segmentation(image, seg_map):
+    """
+    Visualize segmentation result.
+
+    :param image: Original image with shape [height, width, num_channels].
+    :param seg_map: Segmentation map with shape [height, width, 1].
     """
 
-    result = np.zeros(shape=image.shape, dtype=np.uint8)
-    result[image == 33] = 1
-    result[image == 34] = 2
-    result[image == 35] = 3
-    result[image == 36] = 4
-    result[image == 38] = 5
-    result[image == 39] = 6
-    result[image == 40] = 7
+    def _label2color(label):
+        colormap = create_clolormap(len(LABEL_NAMES))
+        return colormap[label]
 
-    return result
+    plt.figure(figsize=(15, 5))
 
+    plt.subplot(141)
+    plt.imshow(image)
+    plt.axis('off')
 
-def preprocess_raw_data(path):
-    filenames = os.listdir(path)
+    color_seg_map = _label2color(seg_map)
+    plt.subplot(142)
+    plt.imshow(color_seg_map)
+    plt.axis('off')
 
-    for filename in filenames:
-        if filename == '.DS_Store' or filename == 'mapped':
-            continue
-        print(filename)
-        image = Image.open(path+filename)
-        mapped_image = map_to_classes(np.array(image) // 1000)
-        Image.fromarray(mapped_image).save(path + 'mapped/' + filename)
+    plt.subplot(143)
+    plt.imshow(image)
+    plt.imshow(color_seg_map, alpha=0.8)
+    plt.axis('off')
 
-def check_images(path):
-    filenames = os.listdir(path)
+    unique_labels = np.unique(seg_map)
+    unique_colors = _label2color(unique_labels)
+    unique_colors = np.expand_dims(unique_colors, 1)
 
-    for filename in filenames:
-        if filename == '.DS_Store' or filename == 'mapped':
-            continue
-        print(filename)
-        image = Image.open(path+filename)
-        print(np.unique(image))
-        plt.imshow(np.squeeze(image))
-        plt.show()
+    ax = plt.subplot(144)
+    plt.imshow(unique_colors)
+    ax.yaxis.tick_right()
+    plt.yticks(range(unique_labels.shape[0]), LABEL_NAMES[unique_labels])
+    plt.show()
 
 
-def main():
-    with tf.Session() as sess:
-        dataset = tf.data.Dataset.from_tensor_slices((color_image_filenames, label_image_filenames))
-        dataset = dataset.map(_parse_function)
+label_image = Image.open('../data/train/label/171206_034513043_Camera_6_instanceIds.png')
 
-        iterator = dataset.make_one_shot_iterator()
-        color_image_cropped, label_image_cropped = iterator.get_next()
+label_image = np.array(label_image)
+label_image = np.expand_dims(label_image, axis=2)
+label_image = map_to_classes(label_image)
 
-        # output_color = tf.image.encode_png(color_image_cropped)
-        # output_label = tf.image.encode_png(label_image_cropped)
+color_image = Image.open('../data/train/color/171206_034513043_Camera_6.jpg')
 
-        color_img, label_img = sess.run([color_image_cropped, label_image_cropped])
-        label_img = map_to_classes(label_img)
-
-        Image.fromarray(color_img).save('1.png')
-        Image.fromarray(np.squeeze(label_img)).save('2.png')
-
-        # file1 = tf.write_file('1.png', color_img)
-        # file2 = tf.write_file('2.png', label_img)
-
-        # sess.run([file1, file2])
+# label_image = np.squeeze(label_image)
+# print(np.unique(label_image))
+# visualize_segmentation(color_image, label_image)
 
 
-main()
-# check_label()
-# preprocess_raw_data('../data/train_label_batch/')
-# check_images('../data/train_label_batch/mapped/')
+with tf.Session() as sess:
+    color_image = np.expand_dims(color_image, axis=0)
+    label_image = np.expand_dims(label_image, axis=0)
+
+    color_image = extract_patches(color_image)
+    label_image = extract_patches(label_image)
+
+    color_image, label_image = sess.run([color_image, label_image])
+
+label_image = np.squeeze(label_image)
+
+visualize_segmentation(color_image[4], label_image[4])
