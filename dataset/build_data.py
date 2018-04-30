@@ -1,30 +1,7 @@
-import numpy as np
 import tensorflow as tf
-
-from PIL import Image
-
 import glob
 import dataset.preprocess_dataset as preprocess
 import dataset.utils as dutils
-
-
-def _load_image(path, type):
-    """
-    Load image at path.
-
-    :param path: Path to image.
-    :param type: Either 'JPG' or 'PNG'
-    :return: ndarrray of shape [1, height, width, num_channels].
-    """
-    image = Image.open(path)
-    image = np.expand_dims(image, axis=0)
-
-    if type == 'JPG':
-        return image
-    elif type == 'PNG':
-        return np.expand_dims(image, axis=3)
-    else:
-        raise ValueError('Unsupported image type')
 
 
 def main(origin_paths, segmentation_paths, filepath):
@@ -32,8 +9,8 @@ def main(origin_paths, segmentation_paths, filepath):
 
     with tf.Session() as sess:
         for i in range(len(origin_paths)):
-            segm_image = _load_image(segmentation_paths[i], type='PNG')
-            origin_image = _load_image(origin_paths[i], type='JPG')
+            segm_image = dutils.load_image(segmentation_paths[i], type='PNG')
+            origin_image = dutils.load_image(origin_paths[i], type='JPG')
 
             segm_image = preprocess.map_to_classes(segm_image)
 

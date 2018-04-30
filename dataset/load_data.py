@@ -3,37 +3,31 @@ from PIL import Image
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
+import dataset.utils as dutils
+import core.model as model
+import core.preprocess_utils as cutils
+import dataset.preprocess_dataset as prd
 
-import core.preprocess_utils as preprocess
-
-
-def _bytes_feature(value):
-    return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
-
-
-deeplab = preprocess.DeepLab()
+deeplab = model.DeepLab()
 
 with tf.Session() as sess:
-    feature = {'train/label': tf.FixedLenFeature([], tf.string),
-               'train/color': tf.FixedLenFeature([], tf.string)}
-
-    filename_queue = tf.train.string_input_producer(['train.tfrecords'], num_epochs=1)
+    filename_queue = tf.train.string_input_producer(['../tmp/train.tfrecord'], num_epochs=1)
 
     reader = tf.TFRecordReader()
     _, serealized_example = reader.read(filename_queue)
 
-    features = tf.parse_single_example(serealized_example, features=feature)
+    origin_image, seg_image = dutils.parse_tfexample_to_image_seg(serealized_example)
 
-    label = tf.decode_raw(features['train/label'], tf.uint8)
-    color = tf.decode_raw(features['train/color'], tf.uint8)
+    origin_image, seg_image = tf.train.shuffle_batch([origin_image, seg_image],
+                                                     batch_size=1,
+                                                     capacity=9,
+                                                     min_after_dequeue=5)
 
-    label = tf.reshape(label, shape=[129, 129])
-    color = tf.reshape(color, shape=[513, 513, 3])
+    origin_image = cutils.resize_imgs(origin_image,
+                                      input_size=513)
 
-    label, color = tf.train.shuffle_batch([label, color],
-                                          batch_size=1,
-                                          capacity=9,
-                                          min_after_dequeue=5)
+    seg_image = cutils.resize_imgs(seg_image,
+                                   input_size=129)
 
     init_op = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
     sess.run(init_op)
@@ -41,20 +35,20 @@ with tf.Session() as sess:
     coord = tf.train.Coordinator()
     threads = tf.train.start_queue_runners(coord=coord)
 
-    writer = tf.python_io.TFRecordWriter('prelogits.tfrecords')
+    writer = tf.python_io.TFRecordWriter('../tmp/prelogits.tfrecord')
 
     while True:
         try:
-            label_image, color_image = sess.run([label, color])
-            prelogits = deeplab.run_decoder(color_image[0])
+            origin_image_, seg_image_ = sess.run([origin_image, seg_image])
 
-            print(prelogits.shape)
+            prd.visualize_segmentation(origin_image_[0], seg_image_[0])
 
-            feature = {'train/labels': _bytes_feature(tf.compat.as_bytes(label_image.tostring())),
-                       'train/prelogits': _bytes_feature(tf.compat.as_bytes(prelogits.tostring()))}
-
-            example = tf.train.Example(features=tf.train.Features(feature=feature))
-            writer.write(example.SerializeToString())
+            # dec_output = deeplab.run_decoder(origin_image_[0])
+            #
+            # print(dec_output[0].shape)
+            #
+            # example = dutils.decoder_seg_to_tfexample(dec_output[0], seg_image_[0])
+            # writer.write(example.SerializeToString())
 
         except tf.errors.OutOfRangeError:
             print('Finish')
