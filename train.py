@@ -1,65 +1,36 @@
-import glob
-import cv2
-from PIL import Image
 import tensorflow as tf
-import numpy as np
-import matplotlib.pyplot as plt
-
 from tensorflow.contrib import slim
+import dataset.utils as dutils
+from core import model
 
+model = model.Logits()
 
-def model(inputs):
-    return slim.conv2d(inputs, num_outputs=8, kernel_size=1, activation_fn=None)
+dataset = tf.data.TFRecordDataset(['tmp/prelogits.tfrecord'])
+dataset = dataset.map(dutils.parse_tfexample_to_decoder_seg)
+dataset = dataset.repeat(100)
+dataset = dataset.shuffle(buffer_size=10)
+dataset = dataset.batch(4)
 
+iterator = dataset.make_one_shot_iterator()
+prelogits, seg_images = iterator.get_next()
 
-with tf.Session() as sess:
-    feature = {'train/labels': tf.FixedLenFeature([], tf.string),
-               'train/prelogits': tf.FixedLenFeature([], tf.string)}
+seg_images = tf.one_hot(seg_images, depth=8, axis=-1)
+logits = model.run(prelogits)
 
-    filename_queue = tf.train.string_input_producer(['dataset/prelogits.tfrecords'],
-                                                    num_epochs=500)
+tf.logging.set_verbosity(tf.logging.INFO)
 
-    reader = tf.TFRecordReader()
-    _, serealized_example = reader.read(filename_queue)
+seg_images = tf.reshape(seg_images, shape=(-1, 8))
+logits = tf.reshape(logits, shape=(-1, 8))
 
-    features = tf.parse_single_example(serealized_example, features=feature)
+loss = tf.losses.softmax_cross_entropy(seg_images, logits=logits)
+optimizer = tf.train.AdamOptimizer(learning_rate=0.001)
+total_loss = slim.losses.get_total_loss()
+tf.summary.scalar('losses/total_loss', total_loss)
 
-    label = tf.decode_raw(features['train/labels'], tf.uint8)
-    prelogit = tf.decode_raw(features['train/prelogits'], tf.float32)
+train_op = slim.learning.create_train_op(total_loss=total_loss, optimizer=optimizer)
 
-    label = tf.reshape(label, shape=[129, 129])
-    prelogit = tf.reshape(prelogit, shape=[129, 129, 256])
-
-    label, prelogit = tf.train.shuffle_batch([label, prelogit],
-                                             batch_size=4,
-                                             capacity=9,
-                                             min_after_dequeue=5)
-
-    init_op = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
-    sess.run(init_op)
-
-    coord = tf.train.Coordinator()
-    threads = tf.train.start_queue_runners(coord=coord)
-
-    label = tf.one_hot(label, depth=8, axis=-1)
-    logit = model(prelogit)
-
-    tf.logging.set_verbosity(tf.logging.INFO)
-
-    label = tf.reshape(label, shape=(-1, 8))
-    logit = tf.reshape(logit, shape=(-1, 8))
-
-    loss = tf.losses.softmax_cross_entropy(label, logits=logit)
-    optimizer = tf.train.AdamOptimizer(learning_rate=0.01)
-    total_loss = slim.losses.get_total_loss()
-    train_op = slim.learning.create_train_op(total_loss=total_loss, optimizer=optimizer)
-
-    final_loss = slim.learning.train(train_op,
-                                     logdir='tmp/model/',
-                                     number_of_steps=350,
-                                     save_summaries_secs=60,
-                                     log_every_n_steps=20)
-
-    coord.request_stop()
-    coord.join(threads)
-    sess.close()
+final_loss = slim.learning.train(train_op,
+                                 logdir='tmp/model/',
+                                 number_of_steps=1000,
+                                 save_summaries_secs=2,
+                                 log_every_n_steps=20)
