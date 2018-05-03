@@ -17,14 +17,18 @@ with tf.Graph().as_default():
     predictions = logits.run(dec_output)
     predictions = tf.argmax(predictions, axis=3)
 
-    seg_image = tf.reshape(seg_image, shape=[-1])
     predictions = tf.reshape(predictions, shape=[-1])
+    seg_image = tf.reshape(seg_image, shape=[-1])
+
+    # Ignore background class(0).
+    weights = tf.not_equal(seg_image, 0)
 
     # Define evaluation metric.
     metric_map = {}
     metric_map['miou'] = tf.metrics.mean_iou(seg_image,
                                              predictions=predictions,
-                                             num_classes=8)
+                                             num_classes=8,
+                                             weights=weights)
 
     metrics_to_values, metrics_to_updates = tf.contrib.metrics.aggregate_metric_map(metric_map)
 
