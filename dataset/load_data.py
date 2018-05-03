@@ -1,17 +1,12 @@
-import glob
-from PIL import Image
 import tensorflow as tf
-import numpy as np
-import matplotlib.pyplot as plt
 import dataset.utils as dutils
 import core.model as model
 import core.preprocess_utils as cutils
-import dataset.preprocess_dataset as prd
 
 deeplab = model.DeepLab()
 
 with tf.Session() as sess:
-    filename_queue = tf.train.string_input_producer(['../tmp/train.tfrecord'], num_epochs=1)
+    filename_queue = tf.train.string_input_producer(['../tmp/val.tfrecord'], num_epochs=1)
 
     reader = tf.TFRecordReader()
     _, serealized_example = reader.read(filename_queue)
@@ -35,20 +30,18 @@ with tf.Session() as sess:
     coord = tf.train.Coordinator()
     threads = tf.train.start_queue_runners(coord=coord)
 
-    writer = tf.python_io.TFRecordWriter('../tmp/prelogits.tfrecord')
+    writer = tf.python_io.TFRecordWriter('../tmp/val_prelogits.tfrecord')
 
     while True:
         try:
             origin_image_, seg_image_ = sess.run([origin_image, seg_image])
 
-            prd.visualize_segmentation(origin_image_[0], seg_image_[0])
+            # prd.visualize_segmentation(origin_image_[0], seg_image_[0])
 
-            # dec_output = deeplab.run_decoder(origin_image_[0])
-            #
-            # print(dec_output[0].shape)
-            #
-            # example = dutils.decoder_seg_to_tfexample(dec_output[0], seg_image_[0])
-            # writer.write(example.SerializeToString())
+            dec_output = deeplab.run_decoder(origin_image_[0])
+            print(dec_output[0].shape)
+            example = dutils.decoder_seg_to_tfexample(dec_output[0], seg_image_[0])
+            writer.write(example.SerializeToString())
 
         except tf.errors.OutOfRangeError:
             print('Finish')

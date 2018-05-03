@@ -50,4 +50,5 @@ val_colors = colors[int(0.6 * num_examples):int(0.8 * num_examples)]
 test_labels = labels[int(0.8 * num_examples):]
 test_colors = colors[int(0.8 * num_examples):]
 
-main(train_colors, train_labels, '../tmp/train.tfrecord')
+# main(train_colors, train_labels, '../tmp/train.tfrecord')
+main(val_colors, val_labels, '../tmp/val.tfrecord')
