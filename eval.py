@@ -45,20 +45,3 @@ with tf.Graph().as_default():
                                     num_evals=10,
                                     eval_op=list(metrics_to_updates.values()),
                                     eval_interval_secs=1)
-
-    # model_path = tf.train.latest_checkpoint('tmp/model/')
-    # init_fn = slim.assign_from_checkpoint_fn(model_path,
-    #                                          slim.get_model_variables(),
-    #                                          ignore_missing_vars=True)
-    #
-    # with tf.Session() as sess:
-    #     sess.run(tf.global_variables_initializer())
-    #     sess.run(tf.local_variables_initializer())
-    #
-    #     init_fn(sess)
-    #
-    #     while True:
-    #         sess.run(list(metrics_to_updates.values()))
-    #
-    #         metric_values = sess.run(list(metrics_to_values.values()))
-    #         print(metric_values)
