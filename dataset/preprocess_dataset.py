@@ -12,7 +12,7 @@ def _crop(image,
           target_height=513,
           target_width=513):
     """
-    Deprecated. Will be remove on release.
+    Deprecated. Will be removed on release.
     """
     return tf.image.crop_to_bounding_box(image,
                                          offset_height,
@@ -25,7 +25,7 @@ def _smart_crop(color_image,
                 label_image,
                 num_crops=1):
     """
-    Deprecated. Will be remove on release.
+    Deprecated. Will be removed on release.
     """
     image_size = tf.shape(label_image)
 

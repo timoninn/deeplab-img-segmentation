@@ -6,6 +6,7 @@ from core import model
 
 dataset = tf.data.TFRecordDataset(['tmp/prelogits.tfrecord'])
 dataset = dataset.map(map_func=dutils.parse_tfexample_to_decoder_seg)
+dataset = dataset.shuffle(2)
 dataset = dataset.repeat(1)
 dataset = dataset.batch(9)
 
@@ -41,7 +42,7 @@ with tf.Graph().as_default():
     slim.evaluation.evaluation_loop(master='',
                                     checkpoint_dir='tmp/model/',
                                     logdir='tmp/eval_log_dir/',
-                                    num_evals=5,
+                                    num_evals=10,
                                     eval_op=list(metrics_to_updates.values()),
                                     eval_interval_secs=1)
 
