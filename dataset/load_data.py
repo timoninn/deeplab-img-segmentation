@@ -3,52 +3,41 @@ import dataset.utils as dutils
 import core.model as model
 import core.preprocess_utils as cutils
 
+worker_index = 0
+
 deeplab = model.DeepLab()
 
+dataset = tf.data.TFRecordDataset(['../tmp/val.tfrecord'])
+dataset = dataset.shard(num_shards=10, index=worker_index)
+dataset = dataset.map(dutils.parse_tfexample_to_image_seg)
+dataset = dataset.repeat(1)
+dataset = dataset.batch(1)
+dataset = dataset.prefetch(2)
+
+iterator = dataset.make_one_shot_iterator()
+origin_image, seg_image = iterator.get_next()
+
+# origin_image = cutils.resize_imgs(origin_image,
+#                                   input_size=513)
+#
+# seg_image = cutils.resize_imgs(seg_image,
+#                                input_size=129)
+
+writer = tf.python_io.TFRecordWriter('../tmp/val_prelogits_10_{}.tfrecord'.format(worker_index))
 with tf.Session() as sess:
-    filename_queue = tf.train.string_input_producer(['../tmp/val.tfrecord'], num_epochs=1)
-
-    reader = tf.TFRecordReader()
-    _, serealized_example = reader.read(filename_queue)
-
-    origin_image, seg_image = dutils.parse_tfexample_to_image_seg(serealized_example)
-
-    origin_image, seg_image = tf.train.shuffle_batch([origin_image, seg_image],
-                                                     batch_size=1,
-                                                     capacity=9,
-                                                     min_after_dequeue=5)
-
-    origin_image = cutils.resize_imgs(origin_image,
-                                      input_size=513)
-
-    seg_image = cutils.resize_imgs(seg_image,
-                                   input_size=129)
-
-    init_op = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
-    sess.run(init_op)
-
-    coord = tf.train.Coordinator()
-    threads = tf.train.start_queue_runners(coord=coord)
-
-    writer = tf.python_io.TFRecordWriter('../tmp/val_prelogits.tfrecord')
-
     while True:
         try:
-            origin_image_, seg_image_ = sess.run([origin_image, seg_image])
+            origin_image_res, seg_image_res = sess.run([origin_image, seg_image])
 
-            # prd.visualize_segmentation(origin_image_[0], seg_image_[0])
+            dec_output = deeplab.run_decoder(origin_image_res[0])
+            print(dec_output.shape)
+            print(seg_image_res.shape)
 
-            dec_output = deeplab.run_decoder(origin_image_[0])
-            print(dec_output[0].shape)
-            example = dutils.decoder_seg_to_tfexample(dec_output[0], seg_image_[0])
+            example = dutils.decoder_seg_to_tfexample(dec_output[0], seg_image_res[0])
             writer.write(example.SerializeToString())
 
         except tf.errors.OutOfRangeError:
             print('Finish')
             break
 
-    writer.close()
-
-    coord.request_stop()
-    coord.join(threads)
-    sess.close()
+writer.close()

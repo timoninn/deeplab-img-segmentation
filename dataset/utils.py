@@ -49,8 +49,11 @@ def parse_tfexample_to_image_seg(example):
     origin_image = tf.decode_raw(features['image/origin/encoded'], tf.uint8)
     seg_image = tf.decode_raw(features['image/segmentation/encoded'], tf.uint8)
 
-    origin_image = tf.reshape(origin_image, shape=[904, 1128, 3])
-    seg_image = tf.reshape(seg_image, shape=[904, 1128, 1])
+    # origin_image = tf.reshape(origin_image, shape=[904, 1128, 3])
+    # seg_image = tf.reshape(seg_image, shape=[904, 1128, 1])
+
+    origin_image = tf.reshape(origin_image, shape=[513, 513, 3])
+    seg_image = tf.reshape(seg_image, shape=[129, 129, 1])
 
     return (origin_image, seg_image)
 
