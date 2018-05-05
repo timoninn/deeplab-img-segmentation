@@ -5,10 +5,10 @@ from utils import visualization
 from utils import preprocess_input
 
 from dataset import build_data
-from core import preprocess_utils
 
 IMAGE_HEIGHT = 2710
 IMAGE_WIDTH = 3384
+
 
 def _get_files(path):
     origin_images_path = path + 'origin/*.jpg'
@@ -49,16 +49,10 @@ def _convert_dataset(samples, filepath):
     origin_image_pl = tf.placeholder(shape=[None, IMAGE_HEIGHT, IMAGE_WIDTH, None], dtype=tf.uint8)
     seg_image_pl = tf.placeholder(shape=[None, IMAGE_HEIGHT, IMAGE_WIDTH, None], dtype=tf.uint8)
 
-    origin_image_patches = preprocess_input.extract_patches(origin_image_pl)
-    seg_image_patches = preprocess_input.extract_patches(seg_image_pl)
-
-    origin_image_patches = preprocess_utils.resize_images(origin_image_patches,
-                                                          size=513,
-                                                          save_ratio=False)
-
-    seg_image_patches = preprocess_utils.resize_images(seg_image_patches,
-                                                       size=129,
-                                                       save_ratio=False)
+    origin_image_patches, seg_image_patches = preprocess_input.preprocess_input(origin_image_pl,
+                                                                                seg_image_pl,
+                                                                                origin_size=513,
+                                                                                seg_size=513)
 
     writer = tf.python_io.TFRecordWriter(filepath)
     with tf.Session() as sess:
@@ -74,11 +68,11 @@ def _convert_dataset(samples, filepath):
                                                                        feed_dict={origin_image_pl: origin_image,
                                                                                   seg_image_pl: seg_image})
 
-            for j in range(9):
-                # visualization.visualize_segmentation(origin_image_patches_res[j], seg_image_patches_res[j])
+            for j in range(origin_image_patches_res.shape[0]):
+                visualization.visualize_segmentation(origin_image_patches_res[j], seg_image_patches_res[j])
 
-                example = build_data.image_seg_to_tfexample(origin_image_patches_res[j], seg_image_patches_res[j])
-                writer.write(example.SerializeToString())
+                # example = build_data.image_seg_to_tfexample(origin_image_patches_res[j], seg_image_patches_res[j])
+                # writer.write(example.SerializeToString())
     writer.close()
 
 

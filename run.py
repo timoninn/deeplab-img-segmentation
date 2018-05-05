@@ -21,15 +21,10 @@ with tf.Session() as sess:
 
     seg_image = preprocess_input.map_to_classes(seg_image)
 
-    origin_image_patches = preprocess_input.extract_patches(origin_image)
-    segm_image_patches = preprocess_input.extract_patches(seg_image)
-
-    origin_image_patches = preprocess_utils.resize_images(origin_image_patches,
-                                                          size=513,
-                                                          save_ratio=False)
-    segm_image_patches = preprocess_utils.resize_images(segm_image_patches,
-                                                        size=513,
-                                                        save_ratio=False)
+    origin_image_patches, segm_image_patches = preprocess_input.preprocess_input(origin_image,
+                                                                                 seg_image,
+                                                                                 origin_size=513,
+                                                                                 seg_size=513)
 
     origin_image_patches, segm_image_patches = sess.run([origin_image_patches, segm_image_patches])
 
@@ -46,7 +41,10 @@ with tf.Session() as sess:
                                              ignore_missing_vars=True)
     init_fn(sess)
 
-    for j in range(9):
+    for j in range(origin_image_patches.shape[0]):
         prelogit = deeplab.run_decoder(origin_image_patches[j])
         prediction_res = sess.run(prediction, feed_dict={prelogit_placeholder: prelogit})
+
         visualization.visualize_segmentation(origin_image_patches[j], prediction_res[0])
+
+        # visualization.visualize_segmentation(origin_image_patches[j], segm_image_patches[j])

@@ -1,8 +1,10 @@
 import numpy as np
 import tensorflow as tf
 
+from core import preprocess_utils
 
-def extract_patches(image):
+
+def _extract_patches(image):
     """
     Extract 9 patches from image. Patched don't overlap. Patch shape [1, 904, 1128, num_channels]
 
@@ -43,3 +45,29 @@ def map_to_classes(image):
     seg_map[image == 40] = 7
 
     return seg_map
+
+
+def _filter_patches(origin_patches, seg_patches):
+    zero = tf.constant(0, dtype=tf.uint8)
+    indices = tf.cast(tf.not_equal(zero, seg_patches), tf.uint8)
+    indices = tf.reduce_sum(indices, axis=[1, 2, 3])
+    indices = tf.not_equal(zero, indices)
+
+    origin_patches = tf.boolean_mask(origin_patches, indices)
+    seg_patches = tf.boolean_mask(seg_patches, indices)
+
+    return (origin_patches, seg_patches)
+
+
+def preprocess_input(origin_image, seg_image, origin_size, seg_size):
+    origin_image_patches = _extract_patches(origin_image)
+    segm_image_patches = _extract_patches(seg_image)
+
+    origin_image_patches = preprocess_utils.resize_images(origin_image_patches,
+                                                          size=origin_size,
+                                                          save_ratio=False)
+    segm_image_patches = preprocess_utils.resize_images(segm_image_patches,
+                                                        size=seg_size,
+                                                        save_ratio=False)
+
+    return _filter_patches(origin_image_patches, segm_image_patches)
