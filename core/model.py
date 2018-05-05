@@ -36,5 +36,5 @@ class DeepLab(object):
 
 
 class Logits(object):
-    def run(self, inputs):
+    def layer(self, inputs):
         return slim.conv2d(inputs, num_outputs=8, kernel_size=1, activation_fn=None)

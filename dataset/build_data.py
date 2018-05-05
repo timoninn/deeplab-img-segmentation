@@ -1,78 +1,80 @@
 import tensorflow as tf
-import glob
-import dataset.preprocess_dataset as preprocess
-import dataset.utils as dutils
-import core.preprocess_utils as cutils
+from PIL import Image
+import numpy as np
 
 
-def main(origin_paths, seg_paths, filepath):
-    num_paths = len(origin_paths)
-    print('Images to process: {}'.format(num_paths))
+def load_image(path, type):
+    """
+    Load image at path.
 
-    origin_image_pl = tf.placeholder(shape=[None, 2710, 3384, None], dtype=tf.uint8)
-    seg_image_pl = tf.placeholder(shape=[None, 2710, 3384, None], dtype=tf.uint8)
+    :param path: Path to image.
+    :param type: Either 'JPG' or 'PNG'
+    :return: ndarrray of shape [1, height, width, num_channels].
+    """
+    image = Image.open(path)
+    image = np.expand_dims(image, axis=0)
 
-    origin_image_patches = preprocess.extract_patches(origin_image_pl)
-    seg_image_patches = preprocess.extract_patches(seg_image_pl)
-
-    origin_image_patches = cutils.resize_imgs(origin_image_patches,
-                                              input_size=513)
-
-    seg_image_patches = cutils.resize_imgs(seg_image_patches,
-                                           input_size=129)
-
-    writer = tf.python_io.TFRecordWriter(filepath)
-    with tf.Session() as sess:
-        for i in range(num_paths):
-            print('Process image: {}'.format(i + 1))
-
-            origin_image = dutils.load_image(origin_paths[i], type='JPG')
-
-            print(origin_paths[i])
-
-            seg_image = dutils.load_image(seg_paths[i], type='PNG')
-            seg_image = preprocess.map_to_classes(seg_image)
-
-            print(seg_paths[i])
-
-            origin_image_patches_res, seg_image_patches_res = sess.run([origin_image_patches, seg_image_patches],
-                                                                       feed_dict={origin_image_pl: origin_image,
-                                                                                  seg_image_pl: seg_image})
-
-            for j in range(9):
-                # preprocess.visualize_segmentation(origin_image_patches_res[j], seg_image_patches_res[j])
-
-                example = dutils.image_seg_to_tfexample(origin_image_patches_res[j], seg_image_patches_res[j])
-                writer.write(example.SerializeToString())
-
-    writer.close()
+    if type == 'JPG':
+        return image
+    elif type == 'PNG':
+        return np.expand_dims(image, axis=3)
+    else:
+        raise ValueError('Unsupported image type')
 
 
-# seg_images_path = '../data/train_label_batch/*.png'
-# origin_images_path = '../data/train_color_batch/*.jpg'
+def _int64_feature(value):
+    return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
 
-seg_images_path = '../data/main/seg/*.png'
-origin_images_path = '../data/main/origin/*.jpg'
 
-seg_images = glob.glob(seg_images_path)
-origin_images = glob.glob(origin_images_path)
+def _bytes_feature(value):
+    return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
 
-seg_images = sorted(seg_images)
-origin_images = sorted(origin_images)
 
-assert len(origin_images) == len(seg_images), 'Number of examples should match'
+def image_seg_to_tfexample(origin_image, seg_image):
+    origin_image_bytes = tf.compat.as_bytes(origin_image.tostring())
+    seg_image_bytes = tf.compat.as_bytes(seg_image.tostring())
 
-num_examples = len(origin_images)
-print('Number of examples: {}'.format(num_examples))
+    feature = {'image/origin/encoded': _bytes_feature(origin_image_bytes),
+               'image/segmentation/encoded': _bytes_feature(seg_image_bytes)}
 
-train_origin = origin_images[0:int(0.6 * num_examples)]
-train_seg = seg_images[0:int(0.6 * num_examples)]
+    return tf.train.Example(features=tf.train.Features(feature=feature))
 
-val_origin = origin_images[int(0.6 * num_examples):int(0.8 * num_examples)]
-val_seg = seg_images[int(0.6 * num_examples):int(0.8 * num_examples)]
 
-test_origin = origin_images[int(0.8 * num_examples):]
-test_seg = seg_images[int(0.8 * num_examples):]
+def parse_tfexample_to_image_seg(example):
+    feature = {'image/origin/encoded': tf.FixedLenFeature([], tf.string),
+               'image/segmentation/encoded': tf.FixedLenFeature([], tf.string)}
 
-# main(train_origin, train_seg, '../tmp/train.tfrecord')
-main(val_origin, val_seg, '../tmp/val.tfrecord')
+    features = tf.parse_single_example(example, features=feature)
+
+    origin_image = tf.decode_raw(features['image/origin/encoded'], tf.uint8)
+    seg_image = tf.decode_raw(features['image/segmentation/encoded'], tf.uint8)
+
+    origin_image = tf.reshape(origin_image, shape=[513, 513, 3])
+    seg_image = tf.reshape(seg_image, shape=[129, 129, 1])
+
+    return (origin_image, seg_image)
+
+
+def decoder_seg_to_tfexample(dec_output, seg_image):
+    dec_output_bytes = tf.compat.as_bytes(dec_output.tostring())
+    seg_image_bytes = tf.compat.as_bytes(seg_image.tostring())
+
+    feature = {'decoder/output/encoded': _bytes_feature(dec_output_bytes),
+               'image/segmentation/encoded': _bytes_feature(seg_image_bytes)}
+
+    return tf.train.Example(features=tf.train.Features(feature=feature))
+
+
+def parse_tfexample_to_decoder_seg(example):
+    feature = {'decoder/output/encoded': tf.FixedLenFeature([], tf.string),
+               'image/segmentation/encoded': tf.FixedLenFeature([], tf.string)}
+
+    features = tf.parse_single_example(example, features=feature)
+
+    dec_output = tf.decode_raw(features['decoder/output/encoded'], tf.float32)
+    seg_image = tf.decode_raw(features['image/segmentation/encoded'], tf.uint8)
+
+    dec_output = tf.reshape(dec_output, shape=[129, 129, 256])
+    seg_image = tf.reshape(seg_image, shape=[129, 129, 1])
+
+    return (dec_output, seg_image)
