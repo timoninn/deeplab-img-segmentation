@@ -21,6 +21,22 @@ def create_clolormap():
     return colormap
 
 
+def show_patches(patches):
+    """
+    Show 9 patches.
+
+    :param patches: Patches with shape [9, height, width, num_channels].
+    """
+    plt.figure(figsize=(7, 7))
+    for i in range(9):
+        grid = int('33{}'.format(i + 1))
+        plt.subplot(grid)
+        plt.imshow(patches[i])
+        plt.axis('off')
+
+    plt.show()
+
+
 def visualize_segmentation(image, seg_map):
     """
     Visualize segmentation result.
