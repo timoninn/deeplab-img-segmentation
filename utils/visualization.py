@@ -4,18 +4,19 @@ import matplotlib.pyplot as plt
 LABEL_NAMES = np.array(['backgound', 'car', 'motorbicycle', 'bicycle', 'person', 'truck', 'bus', 'tricycle'])
 
 
-def create_clolormap(num_classes):
+def create_clolormap():
     """
-    Create colormap.
+    Create colormap used in PASCAL VOC segmentation benchmark.
 
-    :param num_classes: Number of classes.
-    :return: np.array with shape [num_classes, 3].
+    :return: np.array of shape [256, 3].
     """
-    colormap = np.zeros([num_classes, 3], dtype=np.uint8)
+    colormap = np.zeros((256, 3), dtype=np.uint8)
+    ind = np.arange(256, dtype=np.uint8)
 
-    for i in range(num_classes):
+    for shift in reversed(range(8)):
         for channel in range(3):
-            colormap[i, channel] = (i + channel) * 20
+            colormap[:, channel] |= ((ind >> channel) & 1) << shift
+        ind >>= 3
 
     return colormap
 
@@ -29,7 +30,7 @@ def visualize_segmentation(image, seg_map):
     """
 
     def _label2color(label):
-        colormap = create_clolormap(len(LABEL_NAMES))
+        colormap = create_clolormap()
         return colormap[label]
 
     plt.figure(figsize=(15, 5))
