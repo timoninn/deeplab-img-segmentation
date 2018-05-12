@@ -37,4 +37,8 @@ class DeepLab(object):
 
 class Logits(object):
     def layer(self, inputs):
-        return slim.conv2d(inputs, num_outputs=8, kernel_size=1, activation_fn=None)
+        return slim.conv2d(inputs,
+                           num_outputs=8,
+                           kernel_size=1,
+                           activation_fn=None,
+                           weights_regularizer=slim.l2_regularizer(0.0001))
