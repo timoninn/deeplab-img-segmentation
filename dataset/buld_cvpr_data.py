@@ -26,8 +26,6 @@ def _get_files(path):
 
 
 def _split_dataset(samples, parts):
-    assert parts[0] + parts[1] + parts[2] == 1, 'Sum of parts should be equal to 1'
-
     num_samples = len(samples)
     num_train = round(num_samples * parts[0])
     num_val = round(num_samples * parts[1])
@@ -35,7 +33,7 @@ def _split_dataset(samples, parts):
 
     train_samples = samples[0:num_train]
     val_samples = samples[num_train:num_train + num_val]
-    test_samples = samples[num_train + num_val:]
+    test_samples = samples[num_train + num_val:num_train + num_val + num_test]
 
     return {'train': train_samples,
             'val': val_samples,
@@ -52,8 +50,9 @@ def _convert_dataset(samples, filepath):
     origin_image_patches, seg_image_patches = preprocess_input.preprocess_input(origin_image_pl,
                                                                                 seg_image_pl,
                                                                                 origin_size=513,
-                                                                                seg_size=513)
+                                                                                seg_size=129)
 
+    num_examples = 0
     writer = tf.python_io.TFRecordWriter(filepath)
     with tf.Session() as sess:
         for i in range(num_paths):
@@ -69,17 +68,19 @@ def _convert_dataset(samples, filepath):
                                                                                   seg_image_pl: seg_image})
 
             for j in range(origin_image_patches_res.shape[0]):
-                visualization.visualize_segmentation(origin_image_patches_res[j], seg_image_patches_res[j])
+                # visualization.visualize_segmentation(origin_image_patches_res[j], seg_image_patches_res[j])
 
-                # example = build_data.image_seg_to_tfexample(origin_image_patches_res[j], seg_image_patches_res[j])
-                # writer.write(example.SerializeToString())
+                example = build_data.image_seg_to_tfexample(origin_image_patches_res[j], seg_image_patches_res[j])
+                writer.write(example.SerializeToString())
+
+                num_examples += 1
     writer.close()
-
+    print('Number of train examples: {}'.format(num_examples))
 
 def main():
-    file_paths = _get_files('../data/test/')
-    splits = _split_dataset(file_paths, parts=[0.6, 0.2, 0.2])
-    _convert_dataset(splits['train'], '../tmp/train.tfrecord')
+    file_paths = _get_files('../data/main/')
+    splits = _split_dataset(file_paths, parts=[0.3, 0.1, 0.1])
+    _convert_dataset(splits['val'], '../tmp/val_01.tfrecord')
 
 
 if __name__ == '__main__':
