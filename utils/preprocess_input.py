@@ -59,7 +59,7 @@ def _filter_patches(origin_patches, seg_patches):
     return (origin_patches, seg_patches)
 
 
-def preprocess_input(origin_image, seg_image, origin_size, seg_size):
+def preprocess_input(origin_image, seg_image, origin_size, seg_size, filter=True):
     origin_image_patches = _extract_patches(origin_image)
     segm_image_patches = _extract_patches(seg_image)
 
@@ -70,4 +70,14 @@ def preprocess_input(origin_image, seg_image, origin_size, seg_size):
                                                         size=seg_size,
                                                         save_ratio=False)
 
-    return _filter_patches(origin_image_patches, segm_image_patches)
+    if filter:
+        return _filter_patches(origin_image_patches, segm_image_patches)
+    else:
+        return (origin_image_patches, segm_image_patches)
+
+
+def filter_classes(map, class_indices):
+    for class_index in class_indices:
+        map *= tf.cast(tf.not_equal(map, class_index), dtype=tf.int64)
+
+    return map
