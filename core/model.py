@@ -41,4 +41,4 @@ class Logits(object):
                            num_outputs=8,
                            kernel_size=1,
                            activation_fn=None,
-                           weights_regularizer=slim.l2_regularizer(0.0001))
+                           weights_regularizer=slim.l2_regularizer(1e-4))
