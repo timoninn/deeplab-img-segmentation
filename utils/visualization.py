@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib import gridspec
 
 LABEL_NAMES = np.array(['backgound', 'car', 'motorbicycle', 'bicycle', 'person', 'truck', 'bus', 'tricycle'])
 
@@ -49,19 +50,20 @@ def visualize_segmentation(image, seg_map):
         colormap = create_clolormap()
         return colormap[label]
 
-    plt.figure(figsize=(15, 5))
+    plt.figure(figsize=(20, 10))
+    grid_spec = gridspec.GridSpec(1, 4, width_ratios=[7, 7, 7, 1])
 
-    plt.subplot(141)
+    plt.subplot(grid_spec[0])
     plt.imshow(image)
     plt.axis('off')
 
     seg_map = np.squeeze(seg_map)
     color_seg_map = _label2color(seg_map)
-    plt.subplot(142)
+    plt.subplot(grid_spec[1])
     plt.imshow(color_seg_map)
     plt.axis('off')
 
-    plt.subplot(143)
+    plt.subplot(grid_spec[2])
     plt.imshow(image)
     plt.imshow(color_seg_map, alpha=0.8)
     plt.axis('off')
@@ -70,8 +72,9 @@ def visualize_segmentation(image, seg_map):
     unique_colors = _label2color(unique_labels)
     unique_colors = np.expand_dims(unique_colors, 1)
 
-    ax = plt.subplot(144)
+    ax = plt.subplot(grid_spec[3])
     plt.imshow(unique_colors)
     ax.yaxis.tick_right()
     plt.yticks(range(unique_labels.shape[0]), LABEL_NAMES[unique_labels])
+    plt.xticks([], [])
     plt.show()
