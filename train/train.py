@@ -9,9 +9,9 @@ def _get_iterator(filenames):
     dataset = tf.data.TFRecordDataset(filenames)
     dataset = dataset.map(build_data.parse_tfexample_to_decoder_seg)
     dataset = dataset.repeat(1000)
-    dataset = dataset.prefetch(18)
-    dataset = dataset.shuffle(18)
-    dataset = dataset.batch(4)
+    dataset = dataset.prefetch(24)
+    dataset = dataset.shuffle(24)
+    dataset = dataset.batch(6)
 
     return dataset.make_one_shot_iterator()
 
@@ -40,14 +40,15 @@ def train(iterator, logdir, num_steps):
                         logdir=logdir,
                         number_of_steps=num_steps,
                         save_summaries_secs=2,
-                        log_every_n_steps=20)
+                        log_every_n_steps=20,
+                        save_interval_secs=30)
 
 
 def main():
-    iterator = _get_iterator(['../tmp/train_prelogits.tfrecord'])
+    iterator = _get_iterator(['../tmp/train_03_prelogits.tfrecord'])
     train(iterator,
-          logdir='../tmp/train_log_dir/',
-          num_steps=1000)
+          logdir='../tmp/train_03_reg_fil_log_dir/',
+          num_steps=3500)
 
 
 if __name__ == '__main__':
