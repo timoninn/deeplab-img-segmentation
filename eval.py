@@ -3,6 +3,8 @@ from tensorflow.contrib import slim
 
 from core import model
 from dataset import build_data
+from utils import preprocess_input
+
 
 def _get_iterator(filenames):
     dataset = tf.data.TFRecordDataset(filenames)
@@ -12,13 +14,23 @@ def _get_iterator(filenames):
 
     return dataset.make_one_shot_iterator()
 
+
 logits = model.Logits()
+
 
 def _eval(iterator, checkpoint_dir, log_dir):
     dec_output, seg_image = iterator.get_next()
 
     predictions = logits.layer(dec_output)
     predictions = tf.argmax(predictions, axis=3)
+
+    seg_image = tf.to_int64(seg_image)
+    seg_image = tf.squeeze(seg_image, axis=3)
+
+    # bicycle, tricycle
+    hide_classes = [3, 7]
+    predictions = preprocess_input.filter_classes(predictions, class_indices=hide_classes)
+    seg_image = preprocess_input.filter_classes(seg_image, class_indices=hide_classes)
 
     predictions = tf.reshape(predictions, shape=[-1])
     seg_image = tf.reshape(seg_image, shape=[-1])
@@ -31,7 +43,7 @@ def _eval(iterator, checkpoint_dir, log_dir):
     metric_map['miou'] = tf.metrics.mean_iou(seg_image,
                                              predictions=predictions,
                                              num_classes=8,
-                                             weights=weights)
+                                             weights=None)
 
     metrics_to_values, metrics_to_updates = tf.contrib.metrics.aggregate_metric_map(metric_map)
 
@@ -44,17 +56,17 @@ def _eval(iterator, checkpoint_dir, log_dir):
     slim.evaluation.evaluation_loop(master='',
                                     checkpoint_dir=checkpoint_dir,
                                     logdir=log_dir,
-                                    num_evals=20,
+                                    num_evals=200,
                                     eval_op=list(metrics_to_updates.values()),
                                     eval_interval_secs=1)
 
 
 def main():
-    iterator = _get_iterator(['tmp/train_prelogits.tfrecord'])
+    iterator = _get_iterator(['tmp/val_01_prelogits.tfrecord'])
     _eval(iterator,
-          checkpoint_dir='tmp/train_log_dir/',
-          log_dir='tmp/eval/log_dir/')
+          checkpoint_dir='tmp/train_03_reg_fil_log_dir/',
+          log_dir='tmp/val_01_reg_fil_log_dir/')
+
 
 if __name__ == '__main__':
     main()
-
