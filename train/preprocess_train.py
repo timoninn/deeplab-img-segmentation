@@ -1,8 +1,21 @@
+import sys
+import os.path
+
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+
 import tensorflow as tf
 
 from core import model
 from dataset import build_data
 
+flags = tf.app.flags
+FLAGS = flags.FLAGS
+
+flags.DEFINE_string('data_path', None,
+                    'Path to .tfrecord datafile')
+
+flags.DEFINE_string('output_file', None,
+                    'Output filepath')
 
 def _get_iterator(filenames):
     dataset = tf.data.TFRecordDataset(filenames)
@@ -38,10 +51,11 @@ def _calculate_dec_outputs(iterator, path):
     writer.close()
 
 
-def main():
-    iterator = _get_iterator(['../tmp/train.tfrecord'])
-    _calculate_dec_outputs(iterator, '../tmp/train_prelogits.tfrecord')
+def main(unused_argv):
+    iterator = _get_iterator([FLAGS.data_path])
+    _calculate_dec_outputs(iterator, FLAGS.output_file)
 
 
 if __name__ == '__main__':
-    main()
+    flags.mark_flags_as_required(['data_path', 'output_file'])
+    tf.app.run()

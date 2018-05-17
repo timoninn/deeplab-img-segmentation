@@ -1,8 +1,25 @@
+import sys
+import os.path
+
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+
 import tensorflow as tf
 from tensorflow.contrib import slim
 
 from dataset import build_data
 from core import model
+
+flags = tf.app.flags
+FLAGS = flags.FLAGS
+
+flags.DEFINE_string('prelogits_path', None,
+                    'Path to .tfrecord prelogits')
+
+flags.DEFINE_string('train_logdir', None,
+                    'Train log directory')
+
+flags.DEFINE_integer('num_steps', None,
+                     'Number of train steps')
 
 
 def _get_iterator(filenames):
@@ -44,12 +61,13 @@ def train(iterator, logdir, num_steps):
                         save_interval_secs=30)
 
 
-def main():
-    iterator = _get_iterator(['../tmp/train_03_prelogits.tfrecord'])
+def main(unused_argv):
+    iterator = _get_iterator([FLAGS.prelogits_path])
     train(iterator,
-          logdir='../tmp/train_03_reg_fil_log_dir/',
-          num_steps=3500)
+          logdir=FLAGS.train_logdir,
+          num_steps=FLAGS.num_steps)
 
 
 if __name__ == '__main__':
-    main()
+    flags.mark_flags_as_required(['prelogits_path', 'train_logdir', 'num_steps'])
+    tf.app.run()
