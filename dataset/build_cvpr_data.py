@@ -1,6 +1,11 @@
 import tensorflow as tf
 import glob
 
+import sys
+import os.path
+
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+
 from utils import visualization
 from utils import preprocess_input
 
@@ -8,6 +13,21 @@ from dataset import build_data
 
 IMAGE_HEIGHT = 2710
 IMAGE_WIDTH = 3384
+
+flags = tf.app.flags
+FLAGS = flags.FLAGS
+
+flags.DEFINE_string('images_folder', None,
+                    'Folder containing images.')
+
+flags.DEFINE_enum('split_part', None, ['train', 'val', 'test'],
+                  'Which part of dataset convert')
+
+flags.DEFINE_multi_float('splits', [0.6, 0.2, 0.2],
+                         'Dataset splits')
+
+flags.DEFINE_string('output_file', None,
+                    'Output filepath')
 
 
 def _get_files(path):
@@ -77,11 +97,13 @@ def _convert_dataset(samples, filepath):
     writer.close()
     print('Number of train examples: {}'.format(num_examples))
 
-def main():
-    file_paths = _get_files('../data/main/')
-    splits = _split_dataset(file_paths, parts=[0.3, 0.1, 0.1])
-    _convert_dataset(splits['val'], '../tmp/val_01.tfrecord')
+
+def main(unused_argv):
+    file_paths = _get_files(FLAGS.images_folder)
+    splits = _split_dataset(file_paths, parts=FLAGS.splits)
+    _convert_dataset(splits[FLAGS.split_part], FLAGS.output_file)
 
 
 if __name__ == '__main__':
-    main()
+    flags.mark_flags_as_required(['images_folder', 'split_part', 'output_file'])
+    tf.app.run()
