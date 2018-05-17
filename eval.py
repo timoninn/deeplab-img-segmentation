@@ -1,9 +1,26 @@
+# import sys
+# import os.path
+#
+# sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+
 import tensorflow as tf
 from tensorflow.contrib import slim
 
 from core import model
 from dataset import build_data
 from utils import preprocess_input
+
+flags = tf.app.flags
+FLAGS = flags.FLAGS
+
+flags.DEFINE_string('prelogits_path', None,
+                    'Path to .tfrecord prelogits')
+
+flags.DEFINE_string('eval_logdir', None,
+                    'Evaluation log directory')
+
+flags.DEFINE_string('checkpoint_dir', None,
+                    'Train checkpoint directory')
 
 
 def _get_iterator(filenames):
@@ -61,12 +78,13 @@ def _eval(iterator, checkpoint_dir, log_dir):
                                     eval_interval_secs=1)
 
 
-def main():
-    iterator = _get_iterator(['tmp/val_01_prelogits.tfrecord'])
+def main(unused_argv):
+    iterator = _get_iterator([FLAGS.prelogits_path])
     _eval(iterator,
-          checkpoint_dir='tmp/train_03_reg_fil_log_dir/',
-          log_dir='tmp/val_01_reg_fil_log_dir/')
+          checkpoint_dir=FLAGS.checkpoint_dir,
+          log_dir=FLAGS.eval_logdir)
 
 
 if __name__ == '__main__':
-    main()
+    flags.mark_flags_as_required(['prelogits_path', 'eval_logdir', 'checkpoint_dir'])
+    tf.app.run()

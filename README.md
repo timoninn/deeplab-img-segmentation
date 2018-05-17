@@ -1,6 +1,6 @@
 Deeplab Image Segmentation
 
-###Convert dataset to TFRecord
+### Convert dataset to TFRecord
 
 ```bash
 # From deeplab_img_segmentation/dataset
@@ -13,7 +13,7 @@ python3 build_cvpr_data.py \
     --output_file ../tmp/demo_train.tfrecord
 ```
 
-###Precalculate decoder outputs
+### Precalculate decoder outputs
 ```bash
 # From deeplab_img_segmentation/train
 python3 preprocess_train.py \
@@ -22,10 +22,19 @@ python3 preprocess_train.py \
 ```
 
 ### Train model
-```
+```bash
 # From deeplab_img_segmentation/train
 python3 train.py \
     --prelogits_path ../tmp/demo_train_prelogits.tfrecord \
     --train_logdir ../tmp/demo_train_logdir/ \
     --num_steps 100
+```
+
+### Evaluate model
+```bash
+# From deeplab_img_segmentation/
+python3 eval.py \
+    --prelogits_path tmp/demo_train_prelogits.tfrecord \
+    --eval_logdir tmp/demo_eval_logdir \
+    --checkpoint_dir tmp/demo_train_logdir/
 ```
